@@ -234,7 +234,7 @@ func (s *Server) dialUDPUpstream(ctx context.Context, target string) (net.Conn, 
 	if s.cfg.EgressInterface != "" {
 		dialer.Control = bindEgressInterface(s.cfg.EgressInterface)
 	}
-	return dialer.DialContext(ctx, "udp", target)
+	return dialer.DialContext(ctx, s.outboundNetwork("udp"), target)
 }
 
 // decodeQUICEnvelope attempts to interpret packet as a snell v5 QUIC

@@ -8,7 +8,17 @@ Snell v5's UDP/QUIC proxy mode is supported on the **server** only; pair it
 with the **Surge** client (or any other v5-capable client) when you need
 HTTP/3 acceleration for downstream applications.
 
-This project does **not** support Snell v1, v2, or v3.
+### Why no v1 / v2 / v3?
+
+This project deliberately drops support for the older Snell protocols.
+Their stream framing predates the v4 padding/AEAD redesign and is at this
+point trivially fingerprintable on the wire — in particular, traffic
+patterns of v1/v2/v3 no longer reliably traverse the GFW and they
+generally are not recommended for new deployments. If you have a legacy
+v1/v2 setup you cannot retire yet, the sibling project
+[open-snell](https://github.com/icpz/open-snell) (and its forks) still
+implements those versions; this codebase focuses on the v4/v5 wire that
+the current Surge `snell-server` speaks.
 
 ## Feature matrix
 
@@ -20,6 +30,7 @@ This project does **not** support Snell v1, v2, or v3.
 | `http` / `tls` obfs                   | ✅             | ✅             |
 | Dynamic Record Sizing (v5)            | ✅             | ✅             |
 | `egress-interface` (v5)               | ✅             | —              |
+| `ipv6` outbound family toggle (v5)    | ✅             | —              |
 | **QUIC proxy mode (v5)**              | ✅             | use Surge      |
 
 ## Build
@@ -80,6 +91,15 @@ quic = true
 ; interface via SO_BINDTODEVICE on Linux or IP_BOUND_IF on macOS.
 ; Other platforms reject this at dial time.
 egress-interface =
+
+; Whether outbound dials may use IPv6 destinations. Optional, default
+; true (matching the official Surge snell-server's `ipv6 = true`).
+; When false, the dialer is constrained to "tcp4" / "udp4" — Go's
+; resolver only considers A records and AAAA lookups are skipped.
+; Useful on hosts whose IPv6 path is broken or slow. Only affects
+; outbound; what addresses the server LISTENS on is still controlled
+; by `listen` (write `[::]:8388` for v6 dual-stack inbound).
+ipv6 = true
 ```
 
 Run:

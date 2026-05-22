@@ -53,6 +53,17 @@ type ServerConfig struct {
 	// Defaults to true (matching the official Surge snell-server).
 	// Disable only if you don't want the UDP port active at all.
 	QUIC bool
+
+	// IPv6 controls whether the server's outbound dials (upstream TCP
+	// connects, UDP-over-TCP forwarders, QUIC proxy upstreams) are
+	// allowed to use IPv6 addresses. When false, outbound is constrained
+	// to "tcp4" / "udp4" — useful on hosts whose IPv6 path is broken or
+	// you simply want to avoid AAAA lookups slowing down dial-time.
+	//
+	// Defaults to true (matching the official Surge snell-server's
+	// `ipv6 = true`). Note this only affects outbound; what addresses
+	// the server LISTENS on is controlled by `Listen`.
+	IPv6 bool
 }
 
 // Server is a snell v4/v5 server. Use NewServer + Serve, or pass an
@@ -108,6 +119,17 @@ func (s *Server) listenConfig() net.ListenConfig {
 		lc.Control = bindEgressInterface(s.cfg.EgressInterface)
 	}
 	return lc
+}
+
+// outboundNetwork returns the network family string to use for outbound
+// dials of the given base ("tcp" or "udp"). When IPv6 is disabled in the
+// server config, returns "tcp4" / "udp4" so Go's resolver only considers
+// A records and Dial only attempts IPv4.
+func (s *Server) outboundNetwork(base string) string {
+	if !s.cfg.IPv6 {
+		return base + "4"
+	}
+	return base
 }
 
 // ListenAndServe binds the configured address (TCP + optionally UDP for
@@ -269,7 +291,7 @@ func (s *Server) handleTCP(ctx context.Context, stream *Snell, br *bufio.Reader,
 	)
 
 	dialer := s.dialer()
-	upstream, derr := dialer.DialContext(ctx, "tcp", target)
+	upstream, derr := dialer.DialContext(ctx, s.outboundNetwork("tcp"), target)
 	if derr != nil {
 		s.logger.Warn("upstream dial failed", "target", target, "err", derr)
 		if werr := writeServerError(stream, errnoOf(derr), derr.Error()); werr != nil {
@@ -420,7 +442,7 @@ func (s *Server) handleUDP(ctx context.Context, stream *Snell) error {
 	}
 
 	lc := s.listenConfig()
-	pc, err := lc.ListenPacket(ctx, "udp", ":0")
+	pc, err := lc.ListenPacket(ctx, s.outboundNetwork("udp"), ":0")
 	if err != nil {
 		return writeServerError(stream, errnoOf(err), err.Error())
 	}
