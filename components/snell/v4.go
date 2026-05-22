@@ -8,6 +8,7 @@
 package snell
 
 import (
+	"bufio"
 	"crypto/cipher"
 	crand "crypto/rand"
 	"encoding/binary"
@@ -54,7 +55,14 @@ func (c *v4Conn) initReader() error {
 	if err != nil {
 		return err
 	}
-	c.r = &v4Reader{Reader: c.Conn, aead: aead}
+	// Buffered read on top of the (possibly obfs-wrapped) TCP conn. Each
+	// snell frame requires two ReadFulls — one for the 23-byte AEAD'd
+	// header, one for padding+payload — so without buffering we'd do two
+	// recv() syscalls per frame on the hot path. At ~1.5 KB/frame and
+	// a 10 MB transfer that's ~14k syscalls vs ~160 with a 64 KB pull.
+	// Fewer syscalls also lets Linux's delayed-ACK kick in, eliminating
+	// the empty-ACK pressure we observed against the official server.
+	c.r = &v4Reader{Reader: bufio.NewReaderSize(c.Conn, 64*1024), aead: aead}
 	return nil
 }
 
