@@ -83,11 +83,19 @@ Tested against `snell-server v5.0.1 (Nov 19 2025)`:
   TCP dials and the UDP-over-TCP listener to a specific local interface.
   Uses `SO_BINDTODEVICE` on Linux and `IP_BOUND_IF` / `IPV6_BOUND_IF`
   on macOS; other platforms surface a runtime error.
-- **QUIC proxy mode** — ❌ not implemented. v5.0.0's
-  UDP-over-UDP forwarding mode with strongly-encrypted handshake
-  packets is a separate protocol with no public spec. Requires
-  reverse-engineering against a real Surge client; deferred until we
-  have packet captures.
+- **QUIC proxy mode** — ✅ implemented. Set `quic = true` (default) in
+  `snell-server.conf` and the server will also listen on UDP/<port>
+  alongside the TCP listener. The first 1–2 UDP packets from a new
+  (src_ip, src_port) are expected to be a snell-encrypted envelope
+  wrapping a QUIC Initial packet (which conveys the target host);
+  subsequent packets in both directions are forwarded as raw QUIC
+  using a per-flow (src ↔ upstream) mapping. The wire format was
+  reverse-engineered against the official Surge `snell-server v5.0.1`
+  by capturing real HTTP/3 traffic and decrypting with the configured
+  PSK — see `components/snell/quic.go` for the layout. End-to-end
+  HTTP/3 to cloudflare.com via our server passes round-trip 5/5,
+  including the larger homepage HTML; the `EncodeQUICEnvelope` helper
+  is exported so a third party can write a client.
 
 ### What the reuse fix looked like
 

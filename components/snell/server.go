@@ -41,6 +41,18 @@ type ServerConfig struct {
 	// Implemented via SO_BINDTODEVICE on Linux and IP_BOUND_IF on macOS.
 	// Other platforms return an error if this field is set.
 	EgressInterface string
+
+	// QUIC enables snell v5's QUIC proxy mode on the same UDP port as
+	// the TCP listener. When the server accepts a UDP packet whose
+	// (src_ip, src_port) has no existing flow mapping, it tries to
+	// decode it as an encrypted snell envelope wrapping a QUIC Initial
+	// packet (which conveys the target host); once decoded, the
+	// (src, dst) mapping is recorded and all subsequent UDP packets in
+	// both directions are forwarded as raw QUIC.
+	//
+	// Defaults to true (matching the official Surge snell-server).
+	// Disable only if you don't want the UDP port active at all.
+	QUIC bool
 }
 
 // Server is a snell v4/v5 server. Use NewServer + Serve, or pass an
@@ -71,6 +83,9 @@ func NewServer(cfg ServerConfig, logger *slog.Logger) (*Server, error) {
 	if cfg.EgressInterface != "" {
 		logger.Info("egress interface", "name", cfg.EgressInterface)
 	}
+	if cfg.QUIC {
+		logger.Info("snell quic proxy mode enabled")
+	}
 	return s, nil
 }
 
@@ -95,14 +110,29 @@ func (s *Server) listenConfig() net.ListenConfig {
 	return lc
 }
 
-// ListenAndServe binds the configured address and serves until ctx is
-// cancelled or the listener fails irrecoverably.
+// ListenAndServe binds the configured address (TCP + optionally UDP for
+// QUIC proxy mode) and serves until ctx is cancelled or a listener fails
+// irrecoverably.
 func (s *Server) ListenAndServe(ctx context.Context) error {
 	lc := net.ListenConfig{}
 	ln, err := lc.Listen(ctx, "tcp", s.cfg.Listen)
 	if err != nil {
 		return err
 	}
+
+	// Optional QUIC proxy listener on the same address (UDP). Errors
+	// from the QUIC side are logged but don't take down the TCP server,
+	// so a misconfigured firewall blocking UDP doesn't break TCP relay.
+	if s.cfg.QUIC {
+		quicCtx, cancelQUIC := context.WithCancel(ctx)
+		defer cancelQUIC()
+		go func() {
+			if qerr := s.ServeQUIC(quicCtx); qerr != nil {
+				s.logger.Error("quic listener exited", "err", qerr)
+			}
+		}()
+	}
+
 	return s.ServeListener(ctx, ln)
 }
 

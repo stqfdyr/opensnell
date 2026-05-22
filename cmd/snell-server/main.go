@@ -76,6 +76,7 @@ func loadServerConfig(path string) (snell.ServerConfig, error) {
 		ObfsMode:        sec.Key("obfs").MustString("off"),
 		UDP:             sec.Key("udp").MustBool(true),
 		EgressInterface: sec.Key("egress-interface").MustString(""),
+		QUIC:            sec.Key("quic").MustBool(true),
 	}
 	return cfg, nil
 }
