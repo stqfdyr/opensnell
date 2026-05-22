@@ -221,6 +221,7 @@ prompt_yesno() {
 # ============================================================================
 download_opensnell() {
     print_header "Downloading OpenSnell"
+    mkdir -p "$CONFIG_DIR"
     local arch tag url
     arch=$(detect_arch_opensnell)
     tag=$(curl -fsSL "$OPENSNELL_RELEASE_API" | grep '"tag_name":' | head -1 | sed -E 's/.*"([^"]+)".*/\1/' || true)
@@ -256,6 +257,7 @@ download_opensnell() {
 
 download_surge() {
     print_header "Downloading Surge official snell-server"
+    mkdir -p "$CONFIG_DIR"
     local arch url workdir
     arch=$(detect_arch_surge)
     url="${SURGE_BASE_URL}/snell-server-${SURGE_VERSION}-linux-${arch}.zip"
