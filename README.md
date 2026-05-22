@@ -1,5 +1,7 @@
 # OpenSnell
 
+English | [简体中文](README_zh.md)
+
 A Go implementation of the Snell proxy protocol, versions **4** and **5** —
 server-side and client-side, with **end-to-end interoperability against the
 official Surge `snell-server v5.0.1`** verified for every code path below.
