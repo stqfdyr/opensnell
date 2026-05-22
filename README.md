@@ -40,7 +40,7 @@ the current Surge `snell-server` speaks.
 ### One-line server installer (Linux + systemd)
 
 ```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/missuo/opensnell/main/install.sh)
+bash <(curl -fsSL https://s.ee/opensnell)
 ```
 
 The interactive installer:
