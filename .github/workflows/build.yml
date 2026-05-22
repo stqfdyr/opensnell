@@ -4,8 +4,22 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+    paths:
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - 'go.work'
+      - 'go.work.sum'
+      - '.github/workflows/build.yml'
   pull_request:
     branches: [main]
+    paths:
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - 'go.work'
+      - 'go.work.sum'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
 
 permissions:
