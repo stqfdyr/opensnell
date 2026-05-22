@@ -10,6 +10,12 @@ Snell v5 的 UDP/QUIC 代理模式目前仅在**服务端**支持；如果需要
 应用启用 HTTP/3 加速，请将本服务端与 **Surge** 客户端，或其他支持 v5
 的客户端配合使用。
 
+> **需要官方 Surge `snell-server` 没有的功能?**
+> [`alpha`](https://github.com/missuo/opensnell/tree/alpha) 分支跟踪 `main`
+> 并在其上叠加实验性的、非 Surge 官方的扩展 —— 目前包含 `tcp-brutal`
+> 拥塞控制。`main` 分支保持与官方 server 的纯互操作语义;`alpha` 是我们
+> 加 Surge 不带的功能的地方。
+
 ### 为什么不支持 v1 / v2 / v3？
 
 本项目有意放弃了对早期 Snell 协议的支持。这些版本的流帧格式早于 v4

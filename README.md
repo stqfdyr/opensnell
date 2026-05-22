@@ -10,6 +10,12 @@ Snell v5's UDP/QUIC proxy mode is supported on the **server** only; pair it
 with the **Surge** client (or any other v5-capable client) when you need
 HTTP/3 acceleration for downstream applications.
 
+> **Looking for features the official Surge `snell-server` does not have?**
+> The [`alpha`](https://github.com/missuo/opensnell/tree/alpha) branch tracks
+> `main` and layers experimental, non-Surge-standard extensions on top —
+> currently `tcp-brutal` congestion control. `main` stays interop-pure with
+> the official server; `alpha` is where we add features Surge doesn't ship.
+
 ### Why no v1 / v2 / v3?
 
 This project deliberately drops support for the older Snell protocols.
