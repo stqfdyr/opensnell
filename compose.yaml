@@ -1,0 +1,19 @@
+services:
+  snell-server:
+    image: ghcr.io/missuo/opensnell-server:latest
+    container_name: snell-server
+    restart: unless-stopped
+    ports:
+      - "2333:2333/tcp"
+      - "2333:2333/udp"
+    environment:
+      SNELL_LISTEN: "0.0.0.0:2333"
+      # Leave SNELL_PSK empty to auto-generate on first start (printed in logs).
+      SNELL_PSK: ""
+      SNELL_OBFS: "off"
+      SNELL_UDP: "true"
+      SNELL_QUIC: "true"
+      SNELL_IPV6: "true"
+      SNELL_TFO: "false"
+      # SNELL_EGRESS_INTERFACE: "eth0"
+      # SNELL_DNS: "1.1.1.1, 8.8.8.8"
