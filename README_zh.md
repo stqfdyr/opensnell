@@ -58,6 +58,17 @@ bash <(curl -fsSL https://s.ee/opensnell)
   （`libc-ares`、`libuv`、`libsodium` 以及 OpenSSL 1.1 —— 在已不再
   提供该版本的发行版上会从 Debian 11 归档拉取），客户端配置行输出
   `version=6`。
+
+> [!WARNING]
+> **官方 `snell-server v6.0.0b1` 是 beta，不建议使用。**
+> Snell v6 引入了一层**强制的、非常吃 CPU 的逐帧整形**（一段 BLAKE2b
+> padding keystream，外加 padding↔密文交织，再叠加 AES-GCM）。在官方的
+> **单线程**服务端上，这层整形会**把一个 CPU 核打满到 100%**，并使吞吐
+> 相比 v5 **大致腰斩**——在两台同机房主机间实测 **~50 MB/s（v5）→
+> ~27 MB/s（v6）**，且 N=2/4/8 一律如此——却**没有任何延迟改善、也没有
+> 用户可感知的新功能**。它还带着 `b1` beta 标签，并需要额外的共享库。
+> 除非你确实要测试 v6 的线缆兼容性，否则请**继续使用 OpenSnell 或
+> Surge v5.0.1**。安装器在安装 v6 前会打印该警告并要求二次确认。
 - 如果 PSK 留空，使用 `openssl` 自动生成随机 PSK。
 - 如果端口留空，在 `10000–60000` 范围内随机选择一个未占用端口。
 - 写入 `/etc/snell/snell-server.conf`，安装 systemd unit

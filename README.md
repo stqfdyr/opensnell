@@ -61,6 +61,19 @@ The interactive installer:
   dynamically-linked v6 binary needs (`libc-ares`, `libuv`, `libsodium`, and
   OpenSSL 1.1 — pulled from the Debian 11 archive on distros that no longer
   package it), and emits `version=6` client lines.
+
+> [!WARNING]
+> **The official `snell-server v6.0.0b1` is a beta and is _not recommended_.**
+> Snell v6 adds a mandatory, CPU-heavy per-frame *shaping* layer (a BLAKE2b
+> padding keystream plus a padding↔ciphertext interleave, on top of AES-GCM).
+> On the official **single-threaded** server this pegs one CPU core at 100 %
+> and **roughly halves throughput** versus v5 — measured **~50 MB/s (v5) →
+> ~27 MB/s (v6)** between two co-located hosts, flat across concurrency — while
+> giving **no latency improvement and no user-visible feature**. It also still
+> carries a `b1` beta label and needs extra shared libraries. Unless you
+> specifically need to test v6 wire compatibility, **stay on OpenSnell or the
+> Surge v5.0.1 variant.** The installer prints this warning and asks for
+> explicit confirmation before installing v6.
 - Generates a random PSK with `openssl` if you leave it blank.
 - Picks an unused random port in `10000–60000` if you leave the port blank.
 - Writes `/etc/snell/snell-server.conf`, installs a systemd unit

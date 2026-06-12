@@ -358,6 +358,28 @@ download_opensnell() {
     echo "proto=5"           >> "$META_FILE.tmp"
 }
 
+# Why v6.0.0b1 is not recommended (measured, not theoretical): the v6
+# protocol adds a mandatory CPU-heavy per-frame "shaping" layer (a BLAKE2b
+# padding keystream + padding↔ciphertext interleave on top of AES-GCM). On
+# the official single-threaded (libuv) server this pegs one core at 100% and
+# roughly HALVES throughput vs v5 — measured ~50 MB/s (v5) → ~27 MB/s (v6) on
+# co-located hosts, flat across concurrency — while delivering no latency or
+# user-visible feature benefit. It is also a beta (b1) and needs extra shared
+# libraries. Prefer OpenSnell or the Surge v5.0.1 variant.
+warn_v6_not_recommended() {
+    print_warning "snell-server ${SURGE_V6_VERSION} is a BETA and is NOT recommended."
+    print_info  "v6 adds a mandatory CPU-heavy per-frame shaping layer. On the official"
+    print_info  "single-threaded server it pegs one core at 100% and roughly halves"
+    print_info  "throughput vs v5 (~50 MB/s → ~27 MB/s), with no latency or feature gain."
+    print_info  "Recommendation: use OpenSnell (option 1) or Surge ${SURGE_V5_VERSION} (option 2)."
+    local go_on
+    go_on=$(prompt_yesno "Install v6 anyway?" "n")
+    if [ "$go_on" != "y" ]; then
+        print_info "Aborted. Re-run and pick option 1 or 2."
+        exit 0
+    fi
+}
+
 download_surge() {
     # download_surge <version>, e.g. "v5.0.1" or "v6.0.0b1".
     local version="$1" proto="5"
@@ -795,13 +817,13 @@ do_install() {
     echo -e "${BOLD}Choose a variant:${NC}"
     echo -e "${GREEN}1)${NC} OpenSnell ${YELLOW}(default, GPLv3, all-platform)${NC}"
     echo -e "${GREEN}2)${NC} Surge official snell-server ${SURGE_V5_VERSION} ${YELLOW}(closed-source, Linux only)${NC}"
-    echo -e "${GREEN}3)${NC} Surge official snell-server ${SURGE_V6_VERSION} ${YELLOW}(closed-source beta, protocol v6, Linux only)${NC}"
+    echo -e "${GREEN}3)${NC} Surge official snell-server ${SURGE_V6_VERSION} ${RED}(beta — NOT recommended)${NC} ${YELLOW}(closed-source, Linux only)${NC}"
     echo
     read -r -p "$(echo -e "${CYAN}Variant [${BOLD}1${NC}${CYAN}]: ${NC}")" variant_choice
     case "${variant_choice:-1}" in
         1) download_opensnell ;;
         2) download_surge "$SURGE_V5_VERSION" ;;
-        3) download_surge "$SURGE_V6_VERSION" ;;
+        3) warn_v6_not_recommended; download_surge "$SURGE_V6_VERSION" ;;
         *) print_error "Invalid choice"; exit 1 ;;
     esac
 
