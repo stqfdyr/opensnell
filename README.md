@@ -28,6 +28,16 @@ v1/v2 setup you cannot retire yet, the sibling project
 implements those versions; this codebase focuses on the v4/v5 wire that
 the current Surge `snell-server` speaks.
 
+### What about Snell v6?
+
+Snell v6 (`snell-server v6.0.0b1` / `v6.0.0b2`) is **fully reverse-engineered and
+reimplemented in Go** — client and server — and our emission is **byte-for-byte
+identical to the official server on the wire** (100% per-frame padding match across
+24 PSKs, full interop on every one), at performance on par with the hand-tuned C
+server. We have **chosen not to open-source that v6 implementation**. This repo stays
+v4/v5 (GPLv3); for v6 today, the [installer](#install) can deploy the **official**
+Surge `snell-server v6.0.0b2`. See [`SNELL_V6.md`](SNELL_V6.md) for the full status.
+
 ## Feature matrix
 
 | Path                                  | `snell-server` | `snell-client` |

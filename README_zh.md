@@ -25,6 +25,15 @@ HTTP/3 加速，请将 OpenSnell 服务端搭配 **Surge** 客户端，或任何
 及其分支；这些项目仍然实现了旧版本。本代码库只聚焦当前 Surge
 `snell-server` 所使用的 v4/v5 线路协议。
 
+### 那 Snell v6 呢？
+
+Snell v6（`snell-server v6.0.0b1` / `v6.0.0b2`）已被**完整逆向并用 Go 重新实现**——
+客户端与服务端都有——并且我们发出的帧在线路上与官方服务端**逐字节一致**（覆盖所有
+swap-mode 与 write-mode 的 24 个 PSK 上，逐帧 padding 100% 匹配，且每个都能完整互通），
+性能也与手写 C 的官方服务端持平。我们**选择不开源这套 v6 实现**。本仓库继续保持 v4/v5
+（GPLv3）；如果现在就想跑 v6，[安装脚本](#安装)可以部署**官方** Surge
+`snell-server v6.0.0b2`。完整说明见 [`SNELL_V6.md`](SNELL_V6.md)。
+
 ## 功能矩阵
 
 | 路径                                  | `snell-server` | `snell-client` |
