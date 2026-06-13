@@ -16,8 +16,8 @@
 # Three install variants:
 #   1) OpenSnell (default, GPLv3, all-platform, this repo)
 #   2) Surge official snell-server v5.0.1 (closed-source, Linux only)
-#   3) Surge official snell-server v6.0.0b1 (closed-source beta, Linux only,
-#      protocol v6; needs extra shared libraries — see ensure_v6_runtime_libs)
+#   3) Surge official snell-server v6.0.0b2 (closed-source beta, Linux only,
+#      protocol v6; statically linked — no extra shared libraries needed)
 #
 # Project: https://github.com/missuo/opensnell
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -50,7 +50,7 @@ SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 OPENSNELL_REPO="missuo/opensnell"
 OPENSNELL_RELEASE_API="https://api.github.com/repos/${OPENSNELL_REPO}/releases/latest"
 SURGE_V5_VERSION="v5.0.1"
-SURGE_V6_VERSION="v6.0.0b1"
+SURGE_V6_VERSION="v6.0.0b2"
 SURGE_BASE_URL="https://dl.nssurge.com/snell"
 
 # ============================================================================
@@ -358,22 +358,22 @@ download_opensnell() {
     echo "proto=5"           >> "$META_FILE.tmp"
 }
 
-# Why v6.0.0b1 is not recommended (measured, not theoretical): the v6
-# protocol adds a mandatory CPU-heavy per-frame "shaping" layer (a BLAKE2b
-# padding keystream + padding↔ciphertext interleave on top of AES-GCM). On
-# the official single-threaded (libuv) server this pegs one core at 100% and
-# roughly HALVES throughput vs v5 — measured ~50 MB/s (v5) → ~27 MB/s (v6) on
-# co-located hosts, flat across concurrency — while delivering no latency or
-# user-visible feature benefit. It is also a beta (b1) and needs extra shared
-# libraries. Prefer OpenSnell or the Surge v5.0.1 variant.
-warn_v6_not_recommended() {
-    print_warning "snell-server ${SURGE_V6_VERSION} is a BETA and is NOT recommended."
-    print_info  "v6 adds a mandatory CPU-heavy per-frame shaping layer. On the official"
-    print_info  "single-threaded server it pegs one core at 100% and roughly halves"
-    print_info  "throughput vs v5 (~50 MB/s → ~27 MB/s), with no latency or feature gain."
-    print_info  "Recommendation: use OpenSnell (option 1) or Surge ${SURGE_V5_VERSION} (option 2)."
+# About v6.0.0b2 (measured, not theoretical): v6 adds a PSK-derived per-frame
+# traffic-shaping layer (a padding keystream + padding↔ciphertext interleave on
+# top of AES-GCM) for anti-fingerprinting. b2 fixed the two big drawbacks of the
+# b1 beta: it is statically linked (no extra shared libraries) and multi-core
+# (SO_REUSEPORT + io_uring workers), so it no longer saturates a single core — it
+# reaches the ~52 MB/s co-located link ceiling at ~10% CPU, where b1 capped at
+# ~30 MB/s burning one core. It is still a closed-source beta, so for maximum
+# stability OpenSnell (option 1) or Surge v5.0.1 (option 2) remain the safe picks.
+note_v6_beta() {
+    print_warning "snell-server ${SURGE_V6_VERSION} is a closed-source BETA."
+    print_info  "v6 adds a PSK-derived per-frame traffic-shaping layer (anti-fingerprinting)."
+    print_info  "b2 fixed b1's drawbacks: statically linked (no extra libs) and multi-core,"
+    print_info  "so it reaches the link ceiling at ~10% CPU (b1 capped one core at ~30 MB/s)."
+    print_info  "For maximum stability, OpenSnell (option 1) or Surge ${SURGE_V5_VERSION} (option 2) are safe picks."
     local go_on
-    go_on=$(prompt_yesno "Install v6 anyway?" "n")
+    go_on=$(prompt_yesno "Install v6.0.0b2?" "y")
     if [ "$go_on" != "y" ]; then
         print_info "Aborted. Re-run and pick option 1 or 2."
         exit 0
@@ -381,7 +381,7 @@ warn_v6_not_recommended() {
 }
 
 download_surge() {
-    # download_surge <version>, e.g. "v5.0.1" or "v6.0.0b1".
+    # download_surge <version>, e.g. "v5.0.1" or "v6.0.0b2".
     local version="$1" proto="5"
     case "$version" in v6*) proto="6" ;; esac
 
@@ -416,14 +416,14 @@ download_surge() {
     print_success "Installed Surge snell-server ${version} → ${INSTALL_BIN}"
 
     if [ "$proto" = "6" ]; then
-        ensure_v6_runtime_libs
-        # The v6 binary is UPX-packed, so ldd can't enumerate its needs;
-        # the only reliable check is to actually execute it.
+        # v6.0.0b2 is statically linked, so no shared-library setup is needed.
+        # It is UPX-packed (ldd can't enumerate it), so the reliable check is to
+        # actually execute it.
         if "$INSTALL_BIN" -v >/dev/null 2>&1; then
             print_success "Binary runs OK ($("$INSTALL_BIN" -v 2>&1 | grep -o 'snell-server v[^ ]*'))"
         else
-            print_error "snell-server ${version} fails to start — likely missing shared libraries."
-            print_info  "Run '$INSTALL_BIN -v' to see which library is missing, install it, then re-run."
+            print_error "snell-server ${version} fails to start."
+            print_info  "Run '$INSTALL_BIN -v' to see the error."
             exit 1
         fi
     fi
@@ -431,79 +431,6 @@ download_surge() {
     echo "variant=surge"       >  "$META_FILE.tmp"
     echo "version=${version}"  >> "$META_FILE.tmp"
     echo "proto=${proto}"      >> "$META_FILE.tmp"
-}
-
-# ============================================================================
-# v6 runtime dependencies
-# ============================================================================
-# Unlike the fully static v5 build, the Surge v6 binaries are dynamically
-# linked: they need libcares.so.2, libuv.so.1, libsodium.so.23 and — the
-# awkward one — libcrypto.so.1.1 (OpenSSL 1.1), which Debian 12+/Ubuntu 22+
-# no longer package. On apt systems we fall back to the libssl1.1 package
-# from the Debian 11 (bullseye) security archive.
-have_lib() { ldconfig -p 2>/dev/null | grep -q "$1"; }
-
-install_libssl11_deb() {
-    local deb_arch pool deb tmp
-    case "$(uname -m)" in
-        x86_64)        deb_arch="amd64" ;;
-        aarch64|arm64) deb_arch="arm64" ;;
-        i386|i686)     deb_arch="i386"  ;;
-        *) print_error "No libssl1.1 fallback package for $(uname -m)."; return 1 ;;
-    esac
-    pool="http://security.debian.org/debian-security/pool/updates/main/o/openssl"
-    # Scrape the pool index instead of pinning a filename, so new +deb11uN
-    # security revisions don't break us.
-    deb=$(curl -fsSL "$pool/" | grep -oE "libssl1\.1_[^\"]+_${deb_arch}\.deb" | sort -uV | tail -1)
-    if [ -z "$deb" ]; then
-        print_error "Could not locate a libssl1.1 package in the Debian archive."
-        return 1
-    fi
-    print_info "Installing OpenSSL 1.1 from Debian archive: $deb"
-    tmp=$(mktemp)
-    if curl -fsSL -o "$tmp" "$pool/$deb" && dpkg -i "$tmp" >/dev/null 2>&1; then
-        rm -f "$tmp"
-        return 0
-    fi
-    rm -f "$tmp"
-    print_error "Failed to install $deb"
-    return 1
-}
-
-ensure_v6_runtime_libs() {
-    print_info "Checking shared-library dependencies for snell-server v6..."
-    if command -v apt-get >/dev/null 2>&1; then
-        local pkgs=()
-        have_lib libcares.so.2   || pkgs+=(libc-ares2)
-        have_lib libuv.so.1      || pkgs+=(libuv1)
-        have_lib libsodium.so.23 || pkgs+=(libsodium23)
-        if [ "${#pkgs[@]}" -gt 0 ]; then
-            print_info "Installing: ${pkgs[*]}"
-            apt-get update -qq
-            apt-get install -y "${pkgs[@]}" >/dev/null 2>&1 \
-                || print_warning "apt-get install failed for: ${pkgs[*]}"
-        fi
-        if ! have_lib libcrypto.so.1.1; then
-            # Present natively only on Debian 11 / Ubuntu 20.04 and older.
-            apt-get install -y libssl1.1 >/dev/null 2>&1 || install_libssl11_deb \
-                || print_warning "Could not provide libcrypto.so.1.1; the binary check below will fail."
-        fi
-    elif command -v dnf >/dev/null 2>&1 || command -v yum >/dev/null 2>&1; then
-        local mgr="yum"; command -v dnf >/dev/null 2>&1 && mgr="dnf"
-        local pkgs=()
-        have_lib libcares.so.2   || pkgs+=(c-ares)
-        have_lib libuv.so.1      || pkgs+=(libuv)
-        have_lib libsodium.so.23 || pkgs+=(libsodium)
-        have_lib libcrypto.so.1.1 || pkgs+=(compat-openssl11)
-        if [ "${#pkgs[@]}" -gt 0 ]; then
-            print_info "Installing: ${pkgs[*]}"
-            "$mgr" install -y "${pkgs[@]}" >/dev/null 2>&1 \
-                || print_warning "$mgr install failed for: ${pkgs[*]}"
-        fi
-    else
-        print_warning "Unknown package manager; ensure these libraries exist:"
-        print_warning "  libcares.so.2, libuv.so.1, libsodium.so.23, libcrypto.so.1.1 (OpenSSL 1.1)"
-    fi
 }
 
 # ============================================================================
@@ -817,13 +744,13 @@ do_install() {
     echo -e "${BOLD}Choose a variant:${NC}"
     echo -e "${GREEN}1)${NC} OpenSnell ${YELLOW}(default, GPLv3, all-platform)${NC}"
     echo -e "${GREEN}2)${NC} Surge official snell-server ${SURGE_V5_VERSION} ${YELLOW}(closed-source, Linux only)${NC}"
-    echo -e "${GREEN}3)${NC} Surge official snell-server ${SURGE_V6_VERSION} ${RED}(beta — NOT recommended)${NC} ${YELLOW}(closed-source, Linux only)${NC}"
+    echo -e "${GREEN}3)${NC} Surge official snell-server ${SURGE_V6_VERSION} ${YELLOW}(closed-source beta, Linux only)${NC}"
     echo
     read -r -p "$(echo -e "${CYAN}Variant [${BOLD}1${NC}${CYAN}]: ${NC}")" variant_choice
     case "${variant_choice:-1}" in
         1) download_opensnell ;;
         2) download_surge "$SURGE_V5_VERSION" ;;
-        3) warn_v6_not_recommended; download_surge "$SURGE_V6_VERSION" ;;
+        3) note_v6_beta; download_surge "$SURGE_V6_VERSION" ;;
         *) print_error "Invalid choice"; exit 1 ;;
     esac
 

@@ -52,23 +52,20 @@ bash <(curl -fsSL https://s.ee/opensnell)
 
 - 让你选择 **OpenSnell**（默认，GPLv3，支持所有平台）、
   **官方 Surge `snell-server v5.0.1`** 或 **官方 Surge
-  `snell-server v6.0.0b1`** beta（均为闭源，仅 Linux）。
+  `snell-server v6.0.0b2`** beta（均为闭源，仅 Linux）。
 - 选择 v6 时会写入新版 v6 配置（`dns-ip-preference` 取代 `ipv6`，
-  `obfs` 已移除），并自动安装 v6 动态链接二进制所需的共享库
-  （`libc-ares`、`libuv`、`libsodium` 以及 OpenSSL 1.1 —— 在已不再
-  提供该版本的发行版上会从 Debian 11 归档拉取），客户端配置行输出
-  `version=6`。
+  `obfs` 已移除），客户端配置行输出 `version=6`。v6.0.0b2 是**静态链接**的，
+  所以——不同于 b1 beta——不再需要安装任何额外的共享库。
 
-> [!WARNING]
-> **官方 `snell-server v6.0.0b1` 是 beta，不建议使用。**
-> Snell v6 引入了一层**强制的、非常吃 CPU 的逐帧整形**（一段 BLAKE2b
-> padding keystream，外加 padding↔密文交织，再叠加 AES-GCM）。在官方的
-> **单线程**服务端上，这层整形会**把一个 CPU 核打满到 100%**，并使吞吐
-> 相比 v5 **大致腰斩**——在两台同机房主机间实测 **~50 MB/s（v5）→
-> ~27 MB/s（v6）**，且 N=2/4/8 一律如此——却**没有任何延迟改善、也没有
-> 用户可感知的新功能**。它还带着 `b1` beta 标签，并需要额外的共享库。
-> 除非你确实要测试 v6 的线缆兼容性，否则请**继续使用 OpenSnell 或
-> Surge v5.0.1**。安装器在安装 v6 前会打印该警告并要求二次确认。
+> [!NOTE]
+> **官方 `snell-server v6.0.0b2` 是闭源 beta。** Snell v6 引入了一层
+> PSK 派生的逐帧**流量整形**（一段 padding keystream，外加 padding↔密文
+> 交织，再叠加 AES-GCM），用于抗指纹。**b2 修好了让早期 b1 beta 不堪用的
+> 两件事：** 现在是**静态链接**（无需额外共享库）且**多核**
+> （`SO_REUSEPORT` + io_uring worker），不再把单核打满。在两台同机房主机间
+> 实测，b2 以 **~10% 单核 CPU** 顶到 **~52 MB/s 链路天花板**，而 b1 只能
+> **~30 MB/s 还烧满一个核**。它仍是 beta，所以追求最高稳定性时优先选
+> **OpenSnell** 或 **Surge v5.0.1**；安装器会在安装 v6 前打印此说明。
 - 如果 PSK 留空，使用 `openssl` 自动生成随机 PSK。
 - 如果端口留空，在 `10000–60000` 范围内随机选择一个未占用端口。
 - 写入 `/etc/snell/snell-server.conf`，安装 systemd unit

@@ -55,25 +55,23 @@ The interactive installer:
 
 - Lets you pick between **OpenSnell** (default, GPLv3, all-platform), the
   **official Surge `snell-server v5.0.1`**, or the **official Surge
-  `snell-server v6.0.0b1`** beta (both closed-source, Linux only).
+  `snell-server v6.0.0b2`** beta (both closed-source, Linux only).
 - For the v6 variant it writes the new v6-style config (`dns-ip-preference`
-  replaces `ipv6`; `obfs` is gone), auto-installs the shared libraries the
-  dynamically-linked v6 binary needs (`libc-ares`, `libuv`, `libsodium`, and
-  OpenSSL 1.1 — pulled from the Debian 11 archive on distros that no longer
-  package it), and emits `version=6` client lines.
+  replaces `ipv6`; `obfs` is gone) and emits `version=6` client lines. The
+  v6.0.0b2 binary is **statically linked**, so — unlike the b1 beta — no extra
+  shared libraries are installed.
 
-> [!WARNING]
-> **The official `snell-server v6.0.0b1` is a beta and is _not recommended_.**
-> Snell v6 adds a mandatory, CPU-heavy per-frame *shaping* layer (a BLAKE2b
-> padding keystream plus a padding↔ciphertext interleave, on top of AES-GCM).
-> On the official **single-threaded** server this pegs one CPU core at 100 %
-> and **roughly halves throughput** versus v5 — measured **~50 MB/s (v5) →
-> ~27 MB/s (v6)** between two co-located hosts, flat across concurrency — while
-> giving **no latency improvement and no user-visible feature**. It also still
-> carries a `b1` beta label and needs extra shared libraries. Unless you
-> specifically need to test v6 wire compatibility, **stay on OpenSnell or the
-> Surge v5.0.1 variant.** The installer prints this warning and asks for
-> explicit confirmation before installing v6.
+> [!NOTE]
+> **The official `snell-server v6.0.0b2` is a closed-source beta.** Snell v6
+> adds a PSK-derived per-frame *traffic-shaping* layer (a padding keystream plus
+> a padding↔ciphertext interleave, on top of AES-GCM) for anti-fingerprinting.
+> **b2 fixes the two things that made the earlier b1 beta a poor choice:** it is
+> now **statically linked** (no extra shared libraries) and **multi-core**
+> (`SO_REUSEPORT` + io_uring workers), so it no longer saturates a single core.
+> Measured between two co-located hosts, b2 reaches the **~52 MB/s link ceiling
+> at ~10 % of one core**, where b1 capped at **~30 MB/s burning a whole core**.
+> It is still a beta, so for maximum stability prefer **OpenSnell** or the
+> **Surge v5.0.1** variant; the installer prints this note before installing v6.
 - Generates a random PSK with `openssl` if you leave it blank.
 - Picks an unused random port in `10000–60000` if you leave the port blank.
 - Writes `/etc/snell/snell-server.conf`, installs a systemd unit
